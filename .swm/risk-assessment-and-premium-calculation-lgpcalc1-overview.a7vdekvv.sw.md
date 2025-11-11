@@ -3,21 +3,22 @@ title: Risk Assessment and Premium Calculation (LGPCALC1) - Overview
 ---
 # Overview
 
-This document describes the flow for processing insurance applications. The system evaluates the requested operation and executes the relevant business logic to calculate risk scores, assign risk status, and determine premiums.
+This document describes the flow for processing insurance application requests. Requests are routed to the appropriate calculation routines based on the action code, resulting in risk scores, risk status, and premium values as required.
 
 ```mermaid
 flowchart TD
-    node1["Controlling the Calculation Flow
-(Controlling the Calculation Flow)"]:::HeadingStyle --> node2{"Requested Operation?
-(Controlling the Calculation Flow)"}:::HeadingStyle
-    click node1 goToHeading "Controlling the Calculation Flow"
-    click node2 goToHeading "Controlling the Calculation Flow"
-    node2 -->|"Risk Score"| node3["Calculating the Risk Score"]:::HeadingStyle
-    click node3 goToHeading "Calculating the Risk Score"
-    node2 -->|"Status"| node4["Assigning Risk Status and Reason"]:::HeadingStyle
-    click node4 goToHeading "Assigning Risk Status and Reason"
-    node2 -->|"Premium or All"| node3
+    node1["Dispatching Actions Based on Request Type
+(Dispatching Actions Based on Request Type)"]:::HeadingStyle --> node2{"Action code?
+(Dispatching Actions Based on Request Type)"}:::HeadingStyle
+    click node1 goToHeading "Dispatching Actions Based on Request Type"
+    node2 -->|"Risk Score Only"| node3["Adjusting Risk Score by Property Type"]:::HeadingStyle
+    node2 -->|"Status Only"| node4["Classifying Risk Status"]:::HeadingStyle
+    node2 -->|"Full Quote"| node3
     node3 --> node4
+
+    click node2 goToHeading "Dispatching Actions Based on Request Type"
+    click node3 goToHeading "Adjusting Risk Score by Property Type"
+    click node4 goToHeading "Classifying Risk Status"
 classDef HeadingStyle fill:#777777,stroke:#333,stroke-width:2px;
 ```
 
