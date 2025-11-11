@@ -3,270 +3,244 @@ title: Inquire Policy (LGIPVS01)
 ---
 # Overview
 
-This document explains the process of handling policy inquiries. When a transaction request is received, the system validates the policy information and returns either a valid policy/customer number or an error message. The response is delivered immediately or prepared for further processing, depending on the request type.
+This document explains the flow of policy inquiry. The system processes incoming requests to retrieve and validate policy information, then delivers the result to the appropriate recipient, either a user terminal or another program.
 
 ```mermaid
 flowchart TD
-    node1["Starting the transaction and environment setup
-(Starting the transaction and environment setup)"]:::HeadingStyle --> node2["Validate policy
-(Starting the transaction and environment setup)"]:::HeadingStyle
-    node2 --> node3{"Is policy valid?
-(Starting the transaction and environment setup)"}:::HeadingStyle
-    node3 -->|"Valid"| node4["Return policy/customer number
-(Starting the transaction and environment setup)"]:::HeadingStyle
-    node3 -->|"Invalid"| node5["Return error message
-(Starting the transaction and environment setup)"]:::HeadingStyle
-    click node1 goToHeading "Starting the transaction and environment setup"
-    click node2 goToHeading "Starting the transaction and environment setup"
-    click node3 goToHeading "Starting the transaction and environment setup"
-    click node4 goToHeading "Starting the transaction and environment setup"
-    click node5 goToHeading "Starting the transaction and environment setup"
+    node1["Processing the transaction entry point
+(Processing the transaction entry point)"]:::HeadingStyle --> node2{"Request mode? (Direct or Receive)
+(Processing the transaction entry point)"}:::HeadingStyle
+    click node1 goToHeading "Processing the transaction entry point"
+    node2 --> node3["Retrieve and validate policy
+(Processing the transaction entry point)"]:::HeadingStyle
+    node3 --> node4{"Policy valid?
+(Processing the transaction entry point)"}:::HeadingStyle
+    node4 -->|"Yes"| node5["Deliver success response
+(Processing the transaction entry point)"]:::HeadingStyle
+    node4 -->|"No"| node6["Deliver error response
+(Processing the transaction entry point)"]:::HeadingStyle
+    click node2 goToHeading "Processing the transaction entry point"
+    click node3 goToHeading "Processing the transaction entry point"
+    click node4 goToHeading "Processing the transaction entry point"
+    click node5 goToHeading "Processing the transaction entry point"
+    click node6 goToHeading "Processing the transaction entry point"
 classDef HeadingStyle fill:#777777,stroke:#333,stroke-width:2px;
 ```
 
+## Dependencies
+
+### Program
+
+- <SwmToken path="base/src/lgipvs01.cbl" pos="13:6:6" line-data="       PROGRAM-ID. LGIPVS01.">`LGIPVS01`</SwmToken> (<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>)
+
 ## Detailed View of the Program's Functionality
 
-a. Transaction Start and Environment Setup
+a. Initialization and Workspace Setup
 
-The program begins by preparing for a new transaction. It first clears out the buffer used to receive incoming data, ensuring no leftover information from previous transactions. Next, it queries the system for three key pieces of information: the system identifier, the start code, and the name of the invoking program. These values are fetched from the transaction environment and stored for use in decision-making later in the flow.
+When a transaction begins, the program first clears the area used to receive input data. It then retrieves three key system and program identifiers using system calls: the system ID, a code indicating how the transaction was started, and the name of the invoking program. These identifiers are stored for use in subsequent decision-making about how to process the incoming request.
 
-b. Determining Request Type and Preparing Communication Area
+b. Determining Request Type and Preparing Input
 
-The program then checks whether the request is a direct start or has been invoked by another program, or if it is a standard receive operation. This is done by examining the start code and the invoking program name. If the request is direct or invoked, a flag is set to indicate this, and the communication area is populated with data from the incoming parameters. The length of the data to be processed is also set and adjusted. If the request is a standard receive, the program receives data into the buffer, sets a different flag, copies the relevant data into the communication area, and adjusts the length accordingly.
+The program checks whether the transaction was started directly (either by a specific code or by an invoking program being present). If so, it sets a mode indicating a direct call, copies the input data from a shared area, and adjusts the length of the data to be processed. If the transaction was not started directly, it receives input data from the user terminal, sets a mode indicating a receive flow, copies the received data for processing, and adjusts the length accordingly.
 
 c. Building the Policy Key and Reading Policy Data
 
-With the communication area prepared, the program constructs a key for policy lookup. It extracts the policy type and number from the communication area, which together form the key used to search for a policy record. The program then attempts to read the corresponding policy data from a file that stores policy records. The read operation is performed using the constructed key, and the result is stored for validation.
+Next, the program prepares to access the policy file. It clears the area where policy data will be stored, then constructs a key for the policy file using the input data: the first character is used as the policy type, and the remaining characters (up to the adjusted length) are used as the policy number. Using this key, the program attempts to read the corresponding policy record from the file.
 
-d. Validating Policy Data and Preparing Response
+d. Validating Policy Data and Preparing Output Message
 
-After attempting to read the policy data, the program checks whether the retrieved policy type matches the requested type and whether the file read was successful. If either check fails, it prepares an error message indicating a bad policy, and sets the customer and policy numbers to a specific value to signal failure. If the policy is valid, it prepares a response containing the policy key information.
+After attempting to read the policy record, the program checks two things: whether the type of the retrieved policy matches the requested type, and whether the read operation was successful. If either check fails, it prepares an error message, setting both the customer and policy numbers in the output to a default error value. If both checks pass, it copies the retrieved policy data into the output message.
 
-e. Sending Response or Preparing for Next Step
+e. Responding to the Request
 
-Depending on the flag set earlier (which indicates the type of request), the program either sends the prepared message directly to the user or populates the communication area with the response data for further processing. If the request was a standard receive, the message is sent immediately. If it was a direct or invoked request, the response is stored in the communication area for use by the next step in the transaction.
+Finally, the program decides how to deliver the response based on the mode set earlier. If the request was received from a user terminal, it sends the output message directly to the terminal, ensuring the screen is cleared and the keyboard is freed for further input. If the request was a direct programmatic call, it prepares the output data in a shared area for use by the calling program, copying both the message text and the policy key data.
 
 f. Transaction Completion
 
-Finally, the program returns control to the transaction system, signaling the end of its processing for this request. This ensures that the transaction is properly closed and resources are released.
+After preparing and sending the response, the program ends the transaction and returns control to the system, ensuring all resources are properly released.
 
 # Rule Definition
 
-| Paragraph Name | Rule ID | Category          | Description                                                                                                                                                                                                                                     | Conditions                                                                                 | Remarks                                                                                                                                                                                          |
-| -------------- | ------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 79-89          | RL-001  | Data Assignment   | The system must assign system codes (SYSID, STARTCODE, Invokingprog) from the incoming request to internal storage for further processing.                                                                                                      | Upon receiving a request, regardless of type.                                              | SYSID is a 4-character string, STARTCODE is a 2-character string, Invokingprog is an 8-character string. All are initialized to spaces.                                                          |
-| 90-105         | RL-002  | Conditional Logic | The system must determine if the request is a direct start (first byte of start code is 'D') or invoked (invoking program is not spaces). If so, set the processing flag to 'C'. Otherwise, set the flag to 'R' for received/terminal requests. | After system codes are assigned.                                                           | Flag is a single character: 'C' for direct/invoked, 'R' for terminal. Direct start is indicated by first byte of start code = 'D'.                                                               |
-| 92-105         | RL-003  | Data Assignment   | For direct/invoked requests (flag 'C'), copy commarea data from the incoming request. For terminal requests (flag 'R'), receive data from the terminal and copy it to the commarea.                                                             | After determining the request type and setting the flag.                                   | Commarea is 80 bytes. For direct/invoked, data is copied from the incoming commarea. For terminal, data is received from the terminal buffer (74 bytes of data after 5 bytes of transaction ID). |
-| 107-109        | RL-004  | Computation       | The system constructs the policy key using the first byte as the policy type and the next 10 bytes as the policy/customer number from the commarea.                                                                                             | After commarea is prepared.                                                                | Policy key is 11 bytes: 1 byte type (alphanumeric), 10 bytes number (numeric, left-padded with zeros if necessary).                                                                              |
-| 111-119        | RL-005  | Computation       | The system reads the policy record from the KSDSPOLY file using the constructed key (1 byte type + 10 bytes number).                                                                                                                            | After constructing the policy key.                                                         | File read uses 11-byte key. File is KSDSPOLY. Read is generic and expects a 64-byte record.                                                                                                      |
-| 121-125        | RL-006  | Conditional Logic | If the policy record is not found or the type does not match, prepare an error message in the commarea and set the key to '0000000013'.                                                                                                         | After attempting to read the policy record, if the record is not found or type mismatches. | Error message is 'Policy Bad='. Key is set to '0000000013' (10 digits). Message is left-aligned, padded with spaces to 11 bytes. Key is 10 bytes, left-padded with zeros if necessary.           |
-| 126-128        | RL-007  | Data Assignment   | If the policy record is valid, prepare a response in the commarea with the message 'Policy Key=' and the valid policy key.                                                                                                                      | After reading the policy record and confirming it is valid.                                | Message is 'Policy Key=' (11 bytes). Key is the valid policy key (type + number, 11 bytes).                                                                                                      |
-| 130-141        | RL-008  | Conditional Logic | If the request is terminal (flag 'R'), send the message directly to the user terminal. Otherwise, prepare the commarea for the next step in the transaction.                                                                                    | After preparing the response message and key.                                              | For terminal, send 80-byte message to terminal. For programmatic, copy message and key to commarea fields (11 bytes text, 21 bytes key).                                                         |
-| 143-144        | RL-009  | Computation       | After all processing is complete, the system must return control to CICS.                                                                                                                                                                       | After sending response or preparing commarea.                                              | Standard CICS RETURN operation. No data returned except as previously set in commarea or terminal.                                                                                               |
+| Paragraph Name   | Rule ID | Category          | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Conditions                                                             | Remarks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------- | ------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| MAINLINE SECTION | RL-001  | Conditional Logic | The program determines its processing mode by inspecting the first character of the start code and the value of the invoking program. If the start code starts with 'D' or the invoking program is not blank, the mode is set to direct/programmatic ('C'); otherwise, it is set to receive/terminal ('R').                                                                                                                                                                                                     | First character of start code is 'D' OR invoking program is not blank. | Mode values: 'C' for direct/programmatic, 'R' for receive/terminal.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| MAINLINE SECTION | RL-002  | Conditional Logic | Depending on the processing mode, the program selects the input data source. In mode 'C', input data is taken from the programmatic data area; in mode 'R', input data is taken from the terminal receive area.                                                                                                                                                                                                                                                                                                 | Mode is 'C' or 'R'.                                                    | Input data sources: programmatic data area (mode 'C'), terminal receive area (mode 'R').                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| MAINLINE SECTION | RL-003  | Computation       | The policy key for lookup is constructed by concatenating the first character (Type) and the next 10 characters (Number) of the input data, with no separator. The Number is zero-padded on the left to 10 characters if necessary.                                                                                                                                                                                                                                                                             | Input data is available from the selected source.                      | Policy key format: Type (1 character, left-justified) + Number (10 characters, zero-padded left), total 11 characters.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| MAINLINE SECTION | RL-004  | Computation       | The program reads the policy file using the constructed policy key (Type + Number, 11 characters) as the lookup key.                                                                                                                                                                                                                                                                                                                                                                                            | Policy key has been constructed.                                       | File lookup key: 11 characters (Type + Number).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| MAINLINE SECTION | RL-005  | Conditional Logic | After reading the record, the program validates that the policy type in the file matches the Type from the key. If the record is not found or the type does not match, an error message is produced; otherwise, a success message is produced.                                                                                                                                                                                                                                                                  | File record is read; policy type is available.                         | Error message: Type='X', <SwmToken path="base/src/lgipvs01.cbl" pos="124:11:11" line-data="             Move 13              To WRITE-Msg-CustNum">`CustNum`</SwmToken>=13, <SwmToken path="base/src/lgipvs01.cbl" pos="125:11:11" line-data="             Move 13              To WRITE-Msg-PolNum">`PolNum`</SwmToken>=13 (both zero-padded to 10 characters). Success message: Type (1 char, left-justified), <SwmToken path="base/src/lgipvs01.cbl" pos="124:11:11" line-data="             Move 13              To WRITE-Msg-CustNum">`CustNum`</SwmToken> (10 chars, zero-padded left), <SwmToken path="base/src/lgipvs01.cbl" pos="125:11:11" line-data="             Move 13              To WRITE-Msg-PolNum">`PolNum`</SwmToken> (10 chars, zero-padded left). |
+| MAINLINE SECTION | RL-006  | Data Assignment   | The output message consists of a message text ('Policy Key=' for success, 'Policy Bad=' for error) and a policy key (\[Type\]\[<SwmToken path="base/src/lgipvs01.cbl" pos="124:11:11" line-data="             Move 13              To WRITE-Msg-CustNum">`CustNum`</SwmToken>\]\[<SwmToken path="base/src/lgipvs01.cbl" pos="125:11:11" line-data="             Move 13              To WRITE-Msg-PolNum">`PolNum`</SwmToken>\], 21 characters), followed by unused padding as defined in the output structure. | Result of file lookup and validation is available.                     | Message text: 'Policy Key=' (success), 'Policy Bad=' (error). Policy key: 21 characters (\[Type\]\[<SwmToken path="base/src/lgipvs01.cbl" pos="124:11:11" line-data="             Move 13              To WRITE-Msg-CustNum">`CustNum`</SwmToken>\]\[<SwmToken path="base/src/lgipvs01.cbl" pos="125:11:11" line-data="             Move 13              To WRITE-Msg-PolNum">`PolNum`</SwmToken>\]). Padding: unused space as defined in output structure.                                                                                                                                                                                                                                                                                                              |
+| MAINLINE SECTION | RL-007  | Conditional Logic | In mode 'R', the output message is sent to the terminal; in mode 'C', the output message is placed in the programmatic data area for programmatic use.                                                                                                                                                                                                                                                                                                                                                          | Mode is 'C' or 'R'; output message is ready.                           | Output routing: terminal (mode 'R'), programmatic data area (mode 'C').                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| MAINLINE SECTION | RL-008  | Data Assignment   | All numeric fields in the output message (<SwmToken path="base/src/lgipvs01.cbl" pos="124:11:11" line-data="             Move 13              To WRITE-Msg-CustNum">`CustNum`</SwmToken>, <SwmToken path="base/src/lgipvs01.cbl" pos="125:11:11" line-data="             Move 13              To WRITE-Msg-PolNum">`PolNum`</SwmToken>) must be zero-padded on the left to 10 characters.                                                                                                                       | Output message is being constructed.                                   | Numeric fields: <SwmToken path="base/src/lgipvs01.cbl" pos="124:11:11" line-data="             Move 13              To WRITE-Msg-CustNum">`CustNum`</SwmToken> and <SwmToken path="base/src/lgipvs01.cbl" pos="125:11:11" line-data="             Move 13              To WRITE-Msg-PolNum">`PolNum`</SwmToken>, each 10 characters, zero-padded left.                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 # User Stories
 
-## User Story 1: Handle incoming requests and prepare commarea
+## User Story 1: Determine processing mode and select input data source
 
 ---
 
 ### Story Description:
 
-As a system, I want to receive a request, assign system codes, determine the request type, and prepare the commarea accordingly so that the request can be processed correctly based on its origin.
+As a system, I want to determine the processing mode based on the start code and invoking program, and select the appropriate input data source so that the program can process data correctly in either direct/programmatic or receive/terminal mode.
 
 ---
 
 ### Business Rule Mapping:
 
-| Rule ID | Paragraph Name | Rule Description                                                                                                                                                                                                                                |
-| ------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| RL-001  | 79-89          | The system must assign system codes (SYSID, STARTCODE, Invokingprog) from the incoming request to internal storage for further processing.                                                                                                      |
-| RL-002  | 90-105         | The system must determine if the request is a direct start (first byte of start code is 'D') or invoked (invoking program is not spaces). If so, set the processing flag to 'C'. Otherwise, set the flag to 'R' for received/terminal requests. |
-| RL-003  | 92-105         | For direct/invoked requests (flag 'C'), copy commarea data from the incoming request. For terminal requests (flag 'R'), receive data from the terminal and copy it to the commarea.                                                             |
+| Rule ID | Paragraph Name   | Rule Description                                                                                                                                                                                                                                                                                            |
+| ------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RL-001  | MAINLINE SECTION | The program determines its processing mode by inspecting the first character of the start code and the value of the invoking program. If the start code starts with 'D' or the invoking program is not blank, the mode is set to direct/programmatic ('C'); otherwise, it is set to receive/terminal ('R'). |
+| RL-002  | MAINLINE SECTION | Depending on the processing mode, the program selects the input data source. In mode 'C', input data is taken from the programmatic data area; in mode 'R', input data is taken from the terminal receive area.                                                                                             |
 
 ---
 
 ### Relevant Functionality:
 
-- **79-89**
+- **MAINLINE SECTION**
   1. **RL-001:**
-     - On request receipt:
-       - Assign system ID from environment to internal storage.
-       - Assign start code from environment to internal storage.
-       - Assign invoking program name from environment to internal storage.
-- **90-105**
-  1. **RL-002:**
-     - If first byte of start code is 'D' or invoking program is not spaces:
-       - Set processing flag to 'C'.
+     - If start code starts with 'D' or invoking program is not blank:
+       - Set mode to 'C'
      - Else:
-       - Set processing flag to 'R'.
-- **92-105**
+       - Set mode to 'R'
+  2. **RL-002:**
+     - If mode is 'C':
+       - Use programmatic data area as input
+     - Else (mode 'R'):
+       - Use terminal receive area as input
+
+## User Story 2: Policy key construction, file lookup, output message generation, formatting, and routing
+
+---
+
+### Story Description:
+
+As a user, I want the system to construct a policy key from the input data, use it to look up the policy file, validate the record, generate a success or error message with correct formatting, and route the output to the appropriate destination so that I receive accurate and properly formatted feedback about the policy lookup in the correct location.
+
+---
+
+### Business Rule Mapping:
+
+| Rule ID | Paragraph Name   | Rule Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RL-003  | MAINLINE SECTION | The policy key for lookup is constructed by concatenating the first character (Type) and the next 10 characters (Number) of the input data, with no separator. The Number is zero-padded on the left to 10 characters if necessary.                                                                                                                                                                                                                                                                             |
+| RL-004  | MAINLINE SECTION | The program reads the policy file using the constructed policy key (Type + Number, 11 characters) as the lookup key.                                                                                                                                                                                                                                                                                                                                                                                            |
+| RL-005  | MAINLINE SECTION | After reading the record, the program validates that the policy type in the file matches the Type from the key. If the record is not found or the type does not match, an error message is produced; otherwise, a success message is produced.                                                                                                                                                                                                                                                                  |
+| RL-006  | MAINLINE SECTION | The output message consists of a message text ('Policy Key=' for success, 'Policy Bad=' for error) and a policy key (\[Type\]\[<SwmToken path="base/src/lgipvs01.cbl" pos="124:11:11" line-data="             Move 13              To WRITE-Msg-CustNum">`CustNum`</SwmToken>\]\[<SwmToken path="base/src/lgipvs01.cbl" pos="125:11:11" line-data="             Move 13              To WRITE-Msg-PolNum">`PolNum`</SwmToken>\], 21 characters), followed by unused padding as defined in the output structure. |
+| RL-007  | MAINLINE SECTION | In mode 'R', the output message is sent to the terminal; in mode 'C', the output message is placed in the programmatic data area for programmatic use.                                                                                                                                                                                                                                                                                                                                                          |
+| RL-008  | MAINLINE SECTION | All numeric fields in the output message (<SwmToken path="base/src/lgipvs01.cbl" pos="124:11:11" line-data="             Move 13              To WRITE-Msg-CustNum">`CustNum`</SwmToken>, <SwmToken path="base/src/lgipvs01.cbl" pos="125:11:11" line-data="             Move 13              To WRITE-Msg-PolNum">`PolNum`</SwmToken>) must be zero-padded on the left to 10 characters.                                                                                                                       |
+
+---
+
+### Relevant Functionality:
+
+- **MAINLINE SECTION**
   1. **RL-003:**
-     - If flag is 'C':
-       - Copy commarea data from request to internal commarea.
-     - Else (flag is 'R'):
-       - Receive data from terminal into buffer.
-       - Copy terminal data portion to internal commarea.
-
-## User Story 2: Process policy key and read policy record
-
----
-
-### Story Description:
-
-As a system, I want to construct a policy key from the commarea and read the corresponding policy record so that I can validate the policy and proceed with the correct response.
-
----
-
-### Business Rule Mapping:
-
-| Rule ID | Paragraph Name | Rule Description                                                                                                                                    |
-| ------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| RL-004  | 107-109        | The system constructs the policy key using the first byte as the policy type and the next 10 bytes as the policy/customer number from the commarea. |
-| RL-005  | 111-119        | The system reads the policy record from the KSDSPOLY file using the constructed key (1 byte type + 10 bytes number).                                |
-
----
-
-### Relevant Functionality:
-
-- **107-109**
-  1. **RL-004:**
-     - Set policy key type to first byte of commarea.
-     - Set policy key number to next 10 bytes of commarea.
-- **111-119**
-  1. **RL-005:**
-     - Issue file read to KSDSPOLY using constructed key (type + number).
-     - Store result in policy area.
-
-## User Story 3: Prepare and deliver response, then return control
-
----
-
-### Story Description:
-
-As a system, I want to prepare an appropriate response message based on the policy record outcome, deliver it to the correct destination, and return control to CICS so that the user or invoking program receives the correct information and the transaction is properly concluded.
-
----
-
-### Business Rule Mapping:
-
-| Rule ID | Paragraph Name | Rule Description                                                                                                                                             |
-| ------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| RL-006  | 121-125        | If the policy record is not found or the type does not match, prepare an error message in the commarea and set the key to '0000000013'.                      |
-| RL-007  | 126-128        | If the policy record is valid, prepare a response in the commarea with the message 'Policy Key=' and the valid policy key.                                   |
-| RL-008  | 130-141        | If the request is terminal (flag 'R'), send the message directly to the user terminal. Otherwise, prepare the commarea for the next step in the transaction. |
-| RL-009  | 143-144        | After all processing is complete, the system must return control to CICS.                                                                                    |
-
----
-
-### Relevant Functionality:
-
-- **121-125**
-  1. **RL-006:**
-     - If policy type does not match or file read is not successful:
-       - Set message text to 'Policy Bad='.
-       - Set key to '0000000013'.
-- **126-128**
-  1. **RL-007:**
-     - If policy record is valid:
-       - Set message text to 'Policy Key='.
-       - Set key to the valid policy key.
-- **130-141**
-  1. **RL-008:**
-     - If flag is 'R':
-       - Send message to terminal (80 bytes).
+     - Extract first character from input data as Type
+     - Extract next up to 10 characters as Number
+     - Zero-pad Number on the left to 10 characters
+     - Concatenate Type and Number to form policy key
+  2. **RL-004:**
+     - Use constructed policy key to read from policy file
+  3. **RL-005:**
+     - If file record not found or policy type does not match:
+       - Set output message to error format
      - Else:
-       - Copy message text and key to commarea fields for next program.
-- **143-144**
-  1. **RL-009:**
-     - Issue RETURN to CICS.
+       - Set output message to success format using file record values
+  4. **RL-006:**
+     - Set message text based on result (success or error)
+     - Format policy key as \[Type\]\[<SwmToken path="base/src/lgipvs01.cbl" pos="124:11:11" line-data="             Move 13              To WRITE-Msg-CustNum">`CustNum`</SwmToken>\]\[<SwmToken path="base/src/lgipvs01.cbl" pos="125:11:11" line-data="             Move 13              To WRITE-Msg-PolNum">`PolNum`</SwmToken>\], 21 characters
+     - Add unused padding as required
+  5. **RL-007:**
+     - If mode is 'R':
+       - Send output message to terminal
+     - Else (mode 'C'):
+       - Place output message in programmatic data area
+  6. **RL-008:**
+     - For each numeric field in output:
+       - Zero-pad value on the left to 10 characters
 
 # Workflow
 
-# Starting the transaction and environment setup
+# Processing the transaction entry point
 
 ```mermaid
 %%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
 flowchart TD
-    node1["Receive request and assign system codes"] --> node2{"Is direct start or invoked?"}
-    click node1 openCode "base/src/lgipvs01.cbl:75:89"
-    node2 -->|"Direct/Invoked"| node3["Prepare commarea for direct/invoked request"]
-    click node2 openCode "base/src/lgipvs01.cbl:90:97"
-    node2 -->|"Received"| node4["Receive data and prepare commarea"]
-    click node3 openCode "base/src/lgipvs01.cbl:90:97"
-    click node4 openCode "base/src/lgipvs01.cbl:98:105"
-    node3 --> node5["Set up policy key from commarea"]
-    node4 --> node5
-    click node5 openCode "base/src/lgipvs01.cbl:107:110"
-    node5 --> node6["Read policy data from file"]
-    click node6 openCode "base/src/lgipvs01.cbl:111:119"
-    node6 --> node7{"Is policy valid?"}
-    click node7 openCode "base/src/lgipvs01.cbl:121:128"
-    node7 -->|"Invalid"| node8["Prepare error message: 'Policy Bad=', customer/policy number = 13"]
-    click node8 openCode "base/src/lgipvs01.cbl:123:125"
-    node7 -->|"Valid"| node9["Prepare response with policy key"]
-    click node9 openCode "base/src/lgipvs01.cbl:127:128"
-    node8 --> node10{"Is flag 'R'?"}
-    node9 --> node10
-    click node10 openCode "base/src/lgipvs01.cbl:130:141"
-    node10 -->|"Yes"| node11["Send message to user"]
-    click node11 openCode "base/src/lgipvs01.cbl:131:136"
-    node10 -->|"No"| node12["Prepare COMMA-Data for next step"]
-    click node12 openCode "base/src/lgipvs01.cbl:138:140"
-    node11 --> node13["Return"]
-    node12 --> node13["Return"]
-    click node13 openCode "base/src/lgipvs01.cbl:143:144"
+  node1["Start: Incoming request"] --> node2{"Direct request? (STARTCODE = 'D' or Invokingprog set)"}
+  click node1 openCode "base/src/lgipvs01.cbl:75:89"
+  node2 -->|"Direct"| node3["Set mode 'C', use input data as policy key"]
+  node2 -->|"Receive"| node4["Set mode 'R', receive data from user"]
+  click node2 openCode "base/src/lgipvs01.cbl:90:97"
+  click node3 openCode "base/src/lgipvs01.cbl:90:97"
+  click node4 openCode "base/src/lgipvs01.cbl:98:105"
+  node3 --> node5["Retrieve policy from file"]
+  node4 --> node5
+  click node5 openCode "base/src/lgipvs01.cbl:107:119"
+  node5 --> node6{"Policy valid? (Type matches & read successful)"}
+  click node6 openCode "base/src/lgipvs01.cbl:121:128"
+  node6 -->|"No"| node7["Prepare error message (CustNum=13, PolNum=13)"]
+  node6 -->|"Yes"| node8["Prepare success message with policy key"]
+  click node7 openCode "base/src/lgipvs01.cbl:123:125"
+  click node8 openCode "base/src/lgipvs01.cbl:127:128"
+  node7 --> node9{"Mode 'R'?"}
+  node8 --> node9
+  click node9 openCode "base/src/lgipvs01.cbl:130:141"
+  node9 -->|"Yes"| node10["Send message to user"]
+  node9 -->|"No"| node11["Prepare response for program"]
+  click node10 openCode "base/src/lgipvs01.cbl:131:136"
+  click node11 openCode "base/src/lgipvs01.cbl:138:140"
+  node10 --> node12["End"]
+  node11 --> node12
+  click node12 openCode "base/src/lgipvs01.cbl:143:144"
 classDef HeadingStyle fill:#777777,stroke:#333,stroke-width:2px;
 
 %% Swimm:
 %% %%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
 %% flowchart TD
-%%     node1["Receive request and assign system codes"] --> node2{"Is direct start or invoked?"}
-%%     click node1 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:75:89"
-%%     node2 -->|"Direct/Invoked"| node3["Prepare commarea for direct/invoked request"]
-%%     click node2 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:90:97"
-%%     node2 -->|"Received"| node4["Receive data and prepare commarea"]
-%%     click node3 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:90:97"
-%%     click node4 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:98:105"
-%%     node3 --> node5["Set up policy key from commarea"]
-%%     node4 --> node5
-%%     click node5 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:107:110"
-%%     node5 --> node6["Read policy data from file"]
-%%     click node6 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:111:119"
-%%     node6 --> node7{"Is policy valid?"}
-%%     click node7 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:121:128"
-%%     node7 -->|"Invalid"| node8["Prepare error message: 'Policy Bad=', customer/policy number = 13"]
-%%     click node8 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:123:125"
-%%     node7 -->|"Valid"| node9["Prepare response with policy key"]
-%%     click node9 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:127:128"
-%%     node8 --> node10{"Is flag 'R'?"}
-%%     node9 --> node10
-%%     click node10 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:130:141"
-%%     node10 -->|"Yes"| node11["Send message to user"]
-%%     click node11 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:131:136"
-%%     node10 -->|"No"| node12["Prepare <SwmToken path="base/src/lgipvs01.cbl" pos="138:7:9" line-data="             Move Spaces          To COMMA-Data">`COMMA-Data`</SwmToken> for next step"]
-%%     click node12 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:138:140"
-%%     node11 --> node13["Return"]
-%%     node12 --> node13["Return"]
-%%     click node13 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:143:144"
+%%   node1["Start: Incoming request"] --> node2{"Direct request? (STARTCODE = 'D' or Invokingprog set)"}
+%%   click node1 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:75:89"
+%%   node2 -->|"Direct"| node3["Set mode 'C', use input data as policy key"]
+%%   node2 -->|"Receive"| node4["Set mode 'R', receive data from user"]
+%%   click node2 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:90:97"
+%%   click node3 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:90:97"
+%%   click node4 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:98:105"
+%%   node3 --> node5["Retrieve policy from file"]
+%%   node4 --> node5
+%%   click node5 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:107:119"
+%%   node5 --> node6{"Policy valid? (Type matches & read successful)"}
+%%   click node6 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:121:128"
+%%   node6 -->|"No"| node7["Prepare error message (<SwmToken path="base/src/lgipvs01.cbl" pos="124:11:11" line-data="             Move 13              To WRITE-Msg-CustNum">`CustNum`</SwmToken>=13, <SwmToken path="base/src/lgipvs01.cbl" pos="125:11:11" line-data="             Move 13              To WRITE-Msg-PolNum">`PolNum`</SwmToken>=13)"]
+%%   node6 -->|"Yes"| node8["Prepare success message with policy key"]
+%%   click node7 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:123:125"
+%%   click node8 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:127:128"
+%%   node7 --> node9{"Mode 'R'?"}
+%%   node8 --> node9
+%%   click node9 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:130:141"
+%%   node9 -->|"Yes"| node10["Send message to user"]
+%%   node9 -->|"No"| node11["Prepare response for program"]
+%%   click node10 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:131:136"
+%%   click node11 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:138:140"
+%%   node10 --> node12["End"]
+%%   node11 --> node12
+%%   click node12 openCode "<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>:143:144"
 %% classDef HeadingStyle fill:#777777,stroke:#333,stroke-width:2px;
 ```
 
-This section is responsible for initializing the transaction environment, determining the type of request, setting up the communication area, and preparing the response or next step based on policy validation.
+This section is responsible for initializing the transaction, determining the mode of operation (direct or receive), retrieving policy data, validating the policy, and preparing the appropriate response for either user display or programmatic consumption.
 
-| Category       | Rule Name                          | Description                                                                                                                                                                                                          |
-| -------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Business logic | Direct or Invoked Request Handling | If the request is a direct start (start code begins with 'D') or is invoked by another program, the system must set the flag to 'C', use the communication area as input, and adjust the receive length accordingly. |
-| Business logic | Regular Receive Handling           | If the request is a regular receive, the system must receive data into the buffer, set the flag to 'R', and use the received data as the communication area, adjusting the receive length by subtracting 6.          |
-| Business logic | Policy Lookup                      | The system must construct a policy key from the communication area and attempt to read the corresponding policy record from the policy file.                                                                         |
-| Business logic | Valid Policy Response              | If the policy is valid, the system must prepare a response message containing the policy key data.                                                                                                                   |
-| Business logic | Response Dispatch Based on Flag    | If the flag is 'R', the system must send the response message to the user immediately; otherwise, it must prepare the communication area for the next processing step.                                               |
+| Category       | Rule Name                      | Description                                                                                                                                                    |
+| -------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Business logic | Direct request mode            | If the incoming request is direct (STARTCODE = 'D' or Invokingprog is set), the transaction must use the input data as the policy key and set the mode to 'C'. |
+| Business logic | Receive request mode           | If the incoming request is not direct, the transaction must receive data from the user, set the mode to 'R', and use the received data as the policy key.      |
+| Business logic | Policy retrieval               | The transaction must retrieve the policy from the file using the constructed key, regardless of the mode.                                                      |
+| Business logic | Policy validation success      | If the policy is valid and the read is successful, the transaction must prepare a success message containing the policy key.                                   |
+| Business logic | User response delivery         | If the transaction mode is 'R', the response message must be sent to the user terminal.                                                                        |
+| Business logic | Programmatic response delivery | If the transaction mode is not 'R', the response must be prepared for programmatic use in the communication area.                                              |
 
 <SwmSnippet path="/base/src/lgipvs01.cbl" line="75">
 
 ---
 
-In MAINLINE, this is where the flow starts: it clears out the receive buffer, then grabs the system ID, start code, and invoking program from CICS. These values are used to decide what happens next in the transaction.
+In MAINLINE, this is where the transaction starts. The code sets up the workspace by clearing <SwmToken path="base/src/lgipvs01.cbl" pos="77:7:9" line-data="           MOVE SPACES TO WS-RECV.">`WS-RECV`</SwmToken> and fetching system and program identifiers (SYSID, STARTCODE, Invokingprog) using CICS ASSIGN calls. These values are used immediately after to decide how to process the incoming data.
 
 ```cobol
        MAINLINE SECTION.
@@ -294,7 +268,7 @@ In MAINLINE, this is where the flow starts: it clears out the receive buffer, th
 
 ---
 
-Here the flow checks if we're dealing with a command or a regular receive by looking at <SwmToken path="base/src/lgipvs01.cbl" pos="90:3:5" line-data="           IF WS-STARTCODE(1:1) = &#39;D&#39; or">`WS-STARTCODE`</SwmToken> and <SwmToken path="base/src/lgipvs01.cbl" pos="91:1:3" line-data="              WS-Invokeprog Not = Spaces">`WS-Invokeprog`</SwmToken>. Based on that, it sets the flag and communication area, and adjusts the length for later use.
+This is where we decide if we're using existing data or receiving new input, and set flags so the rest of the flow knows how to handle it.
 
 ```cobol
            IF WS-STARTCODE(1:1) = 'D' or
@@ -323,7 +297,7 @@ Here the flow checks if we're dealing with a command or a regular receive by loo
 
 ---
 
-Next we take the data from the communication area, build the key, and call the KSDSPOLY file to try to fetch the matching policy record. This sets up the data for validation and message creation.
+This is where we build the key from <SwmToken path="base/src/lgipvs01.cbl" pos="93:9:11" line-data="              MOVE COMMA-DATA  TO WS-COMMAREA">`WS-COMMAREA`</SwmToken> and call the KSDSPOLY file to fetch the policy data. The result of this read is used in the next step to validate the transaction.
 
 ```cobol
            Move Spaces                      To CA-Area
@@ -349,7 +323,7 @@ Next we take the data from the communication area, build the key, and call the K
 
 ---
 
-Here we check if the policy type matches and if the file read was successful. If not, we set the message to 'Policy Bad=' and mark the numbers as 13 to indicate failure. Otherwise, we prep the valid policy data for the message.
+After reading the policy, we check if the type matches and if the read was successful. If not, we set an error message and mark the numeric fields as 13. If all is good, we copy the policy data for output.
 
 ```cobol
            If CA-Policy-Type   Not = Part-Key-Type Or
@@ -370,7 +344,7 @@ Here we check if the policy type matches and if the file read was successful. If
 
 ---
 
-Finally, depending on the flag, we either send the message to the client right away or prep it in the communication area for later use. Then we return control to CICS.
+Finally, depending on the flag, we either send the message to the terminal (if it's a receive flow) or prep the output in <SwmToken path="base/src/lgipvs01.cbl" pos="93:3:5" line-data="              MOVE COMMA-DATA  TO WS-COMMAREA">`COMMA-DATA`</SwmToken> for programmatic use. Then we return from the transaction.
 
 ```cobol
            If WS-FLAG = 'R' Then

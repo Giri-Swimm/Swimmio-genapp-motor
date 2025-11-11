@@ -3,24 +3,29 @@ title: Risk Assessment and Premium Calculation (LGPCALC1) - Overview
 ---
 # Overview
 
-This document explains the flow for processing insurance calculations. Requests are routed to the relevant business logic to calculate risk scores, assign insurance status, and provide explanatory reasons based on property and location data.
+This document describes the flow for processing insurance applications. The system evaluates the requested operation and executes the relevant business logic to calculate risk scores, assign risk status, and determine premiums.
 
 ```mermaid
 flowchart TD
-  node1["Entry and Action Dispatch
-(Entry and Action Dispatch)"]:::HeadingStyle --> node2{"Requested operation?
-(Entry and Action Dispatch)"}:::HeadingStyle
-  node2 -->|"Risk"| node3["Property and Location Risk Adjustments"]:::HeadingStyle
-  node3 --> node4["Risk Status Assignment"]:::HeadingStyle
-  node2 -->|"Status"| node4
-  node2 -->|"All"| node3
-  node3 --> node4
-  click node1 goToHeading "Entry and Action Dispatch"
-  click node2 goToHeading "Entry and Action Dispatch"
-  click node3 goToHeading "Property and Location Risk Adjustments"
-  click node4 goToHeading "Risk Status Assignment"
+    node1["Controlling the Calculation Flow
+(Controlling the Calculation Flow)"]:::HeadingStyle --> node2{"Requested Operation?
+(Controlling the Calculation Flow)"}:::HeadingStyle
+    click node1 goToHeading "Controlling the Calculation Flow"
+    click node2 goToHeading "Controlling the Calculation Flow"
+    node2 -->|"Risk Score"| node3["Calculating the Risk Score"]:::HeadingStyle
+    click node3 goToHeading "Calculating the Risk Score"
+    node2 -->|"Status"| node4["Assigning Risk Status and Reason"]:::HeadingStyle
+    click node4 goToHeading "Assigning Risk Status and Reason"
+    node2 -->|"Premium or All"| node3
+    node3 --> node4
 classDef HeadingStyle fill:#777777,stroke:#333,stroke-width:2px;
 ```
+
+## Dependencies
+
+### Program
+
+- LGPCALC1 (<SwmPath>[base/src/lgpcalc1.cbl](base/src/lgpcalc1.cbl)</SwmPath>)
 
 &nbsp;
 

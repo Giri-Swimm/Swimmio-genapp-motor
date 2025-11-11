@@ -3,7 +3,30 @@ title: Inquire Policy (LGIPVS01) - Overview
 ---
 # Overview
 
-This document describes how policy inquiries are processed. The system determines the request type, extracts the policy key, retrieves and validates policy data, and prepares a response message containing either the policy key or an error message.
+This document describes how transaction requests are processed to inquire about policy information. The LGIPVS01 program determines the request source, validates policy data, and delivers a response message to the user or another program.
+
+```mermaid
+flowchart TD
+    node1["Processing the Transaction Entry Point
+Determine request source (direct/program or terminal)
+(Processing the Transaction Entry Point)"]:::HeadingStyle --> node2{"Is policy type valid and read successful?"}
+    click node1 goToHeading "Processing the Transaction Entry Point"
+    node2 -->|"Prepare success message"| node3{"Response mode: 'R' or 'C'?"}
+    node2 -->|"Prepare error message"| node3
+    node3 -->|"'R'"| node4["Send message to user terminal
+(Processing the Transaction Entry Point)"]:::HeadingStyle
+    node3 -->|"'C'"| node5["Store message for program use
+(Processing the Transaction Entry Point)"]:::HeadingStyle
+    click node4 goToHeading "Processing the Transaction Entry Point"
+    click node5 goToHeading "Processing the Transaction Entry Point"
+classDef HeadingStyle fill:#777777,stroke:#333,stroke-width:2px;
+```
+
+## Dependencies
+
+### Program
+
+- LGIPVS01 (<SwmPath>[base/src/lgipvs01.cbl](base/src/lgipvs01.cbl)</SwmPath>)
 
 &nbsp;
 

@@ -3,111 +3,29 @@ title: Motor Policy Menu (LGTESTP1) - Overview
 ---
 # Overview
 
-This document describes the flow for managing motor insurance policies through a menu-driven interface. Users can view, add, delete, or update policies, with each operation validated and processed by backend systems, and results displayed to the user.
+This document explains the flow of managing motor insurance policies through a main menu interface. Users can view, add, delete, or update policy records, with each action updating the backend and providing feedback to the user.
 
 ```mermaid
 flowchart TD
-  node1["Menu Input Handling
-(Menu Input Handling)"]:::HeadingStyle --> node2{"Which operation?
-(Menu Input Handling)"}:::HeadingStyle
-  click node1 goToHeading "Menu Input Handling"
-  click node2 goToHeading "Menu Input Handling"
-  node2 -->|"View"| node3["Policy Inquiry Dispatch"]:::HeadingStyle
-  click node3 goToHeading "Policy Inquiry Dispatch"
-  node3 --> node4{"Is data available?"}
-  node4 -->|"Yes"| node5["Menu Display and Session End"]:::HeadingStyle
-  click node5 goToHeading "Menu Display and Session End"
-  node4 -->|"No"| node6["No Data Message and Exit"]:::HeadingStyle
-  click node6 goToHeading "No Data Message and Exit"
-  node6 --> node5
-  node2 -->|"Add"| node7["Policy Data Validation and Insert"]:::HeadingStyle
-  click node7 goToHeading "Policy Data Validation and Insert"
-  node7 --> node5
-  node2 -->|"Delete"| node8["Delete Request Validation and Routing"]:::HeadingStyle
-  click node8 goToHeading "Delete Request Validation and Routing"
-  node8 --> node5
-  node2 -->|"Update"| node9["Policy Update Validation and Routing"]:::HeadingStyle
-  click node9 goToHeading "Policy Update Validation and Routing"
-  node9 --> node5
-
+    node1["Starting the Main Menu Flow"]:::HeadingStyle --> node2["Handling Main Menu Actions"]:::HeadingStyle
+    click node1 goToHeading "Starting the Main Menu Flow"
+    click node2 goToHeading "Handling Main Menu Actions"
+    node2 -->|"View"| node3["Processing Policy Inquiry"]:::HeadingStyle
+    click node3 goToHeading "Processing Policy Inquiry"
+    node2 -->|"Add"| node4["Validating and Processing Policy Data"]:::HeadingStyle
+    click node4 goToHeading "Validating and Processing Policy Data"
+    node2 -->|"Delete"| node5["Validating and Routing Policy Delete Requests"]:::HeadingStyle
+    click node5 goToHeading "Validating and Routing Policy Delete Requests"
+    node2 -->|"Update"| node6["Validating and Routing Policy Update Requests"]:::HeadingStyle
+    click node6 goToHeading "Validating and Routing Policy Update Requests"
 classDef HeadingStyle fill:#777777,stroke:#333,stroke-width:2px;
-```
-
-# Technical Overview
-
-```mermaid
-sequenceDiagram
-  participant MENU as LGTESTP1.cbl<br/>*(Motor Policy Menu Controller)*
-  participant INQUIRY as LGIPOL01.cbl<br/>*(Policy Inquiry Dispatcher)*
-  participant INQDB as LGIPDB01.cbl<br/>*(Policy Data Fetcher)*
-  participant ADD as LGAPOL01.cbl<br/>*(Policy Addition Validator)*
-  participant ADDDB as base/src/LGAPDB01.cbl<br/>*(Policy Addition Processor)*
-  participant DEL as LGDPOL01.cbl<br/>*(Policy Deletion Validator)*
-  participant DELDB as LGDPDB01.cbl<br/>*(Policy Deletion Processor)*
-  participant DELVSAM as LGDPVS01.cbl<br/>*(VSAM Policy File Deletion Handler)*
-  participant UPD as LGUPOL01.cbl<br/>*(Policy Update Validator)*
-  participant UPDDB as LGUPDB01.cbl<br/>*(Policy Update Processor)*
-  participant UPDVSAM as LGUPVS01.cbl<br/>*(VSAM Policy File Update Handler)*
-  participant LOGGER as LGSTS1Q.cbl<br/>*(Error and Message Logger)*
-
-  MENU->>INQUIRY: Dispatch policy inquiry request
-  INQUIRY->>INQDB: Fetch policy data
-  INQUIRY->>LOGGER: Log errors/messages
-  MENU->>ADD: Dispatch policy addition request
-  ADD->>ADDDB: Process policy addition
-  ADD->>LOGGER: Log errors/messages
-  MENU->>DEL: Dispatch policy deletion request
-  DEL->>DELDB: Process policy deletion
-  DELDB->>DELVSAM: Delete policy from VSAM file
-  DEL->>LOGGER: Log errors/messages
-  DELDB->>LOGGER: Log errors/messages
-  DELVSAM->>LOGGER: Log errors/messages
-  MENU->>UPD: Dispatch policy update request
-  UPD->>UPDDB: Process policy update
-  UPDDB->>UPDVSAM: Update VSAM policy file
-  UPD->>LOGGER: Log errors/messages
-  UPDDB->>LOGGER: Log errors/messages
-  UPDVSAM->>LOGGER: Log errors/messages
-
-%% Swimm:
-%% sequenceDiagram
-%%   participant MENU as LGTESTP1.cbl<br/>*(Motor Policy Menu Controller)*
-%%   participant INQUIRY as LGIPOL01.cbl<br/>*(Policy Inquiry Dispatcher)*
-%%   participant INQDB as LGIPDB01.cbl<br/>*(Policy Data Fetcher)*
-%%   participant ADD as LGAPOL01.cbl<br/>*(Policy Addition Validator)*
-%%   participant ADDDB as <SwmPath>[base/src/LGAPDB01.cbl](base/src/LGAPDB01.cbl)</SwmPath><br/>*(Policy Addition Processor)*
-%%   participant DEL as LGDPOL01.cbl<br/>*(Policy Deletion Validator)*
-%%   participant DELDB as LGDPDB01.cbl<br/>*(Policy Deletion Processor)*
-%%   participant DELVSAM as LGDPVS01.cbl<br/>*(VSAM Policy File Deletion Handler)*
-%%   participant UPD as LGUPOL01.cbl<br/>*(Policy Update Validator)*
-%%   participant UPDDB as LGUPDB01.cbl<br/>*(Policy Update Processor)*
-%%   participant UPDVSAM as LGUPVS01.cbl<br/>*(VSAM Policy File Update Handler)*
-%%   participant LOGGER as LGSTS1Q.cbl<br/>*(Error and Message Logger)*
-%% 
-%%   MENU->>INQUIRY: Dispatch policy inquiry request
-%%   INQUIRY->>INQDB: Fetch policy data
-%%   INQUIRY->>LOGGER: Log errors/messages
-%%   MENU->>ADD: Dispatch policy addition request
-%%   ADD->>ADDDB: Process policy addition
-%%   ADD->>LOGGER: Log errors/messages
-%%   MENU->>DEL: Dispatch policy deletion request
-%%   DEL->>DELDB: Process policy deletion
-%%   DELDB->>DELVSAM: Delete policy from VSAM file
-%%   DEL->>LOGGER: Log errors/messages
-%%   DELDB->>LOGGER: Log errors/messages
-%%   DELVSAM->>LOGGER: Log errors/messages
-%%   MENU->>UPD: Dispatch policy update request
-%%   UPD->>UPDDB: Process policy update
-%%   UPDDB->>UPDVSAM: Update VSAM policy file
-%%   UPD->>LOGGER: Log errors/messages
-%%   UPDDB->>LOGGER: Log errors/messages
-%%   UPDVSAM->>LOGGER: Log errors/messages
 ```
 
 ## Dependencies
 
 ### Programs
 
+- LGTESTP1 (<SwmPath>[base/src/lgtestp1.cbl](base/src/lgtestp1.cbl)</SwmPath>)
 - LGIPOL01 (<SwmPath>[base/src/lgipol01.cbl](base/src/lgipol01.cbl)</SwmPath>)
 - LGIPDB01 (<SwmPath>[base/src/lgipdb01.cbl](base/src/lgipdb01.cbl)</SwmPath>)
 - LGSTSQ (<SwmPath>[base/src/lgstsq.cbl](base/src/lgstsq.cbl)</SwmPath>)
