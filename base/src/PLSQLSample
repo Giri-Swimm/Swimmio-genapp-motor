@@ -1,0 +1,46 @@
+CREATE OR REPLACE  PROCEDURE prc_manage_batch_status (
+        p_batch_id       IN  batch_job_master.batch_id%TYPE,
+        p_new_status     IN  batch_job_master.status%TYPE,
+        p_error_msg      IN  batch_job_master.error_message%TYPE DEFAULT NULL,
+        p_success_count  IN  batch_job_master.records_success%TYPE DEFAULT 0,
+        p_failed_count   IN  batch_job_master.records_failed%TYPE DEFAULT 0
+    ) IS
+        v_current_status batch_job_master.status%TYPE;
+    BEGIN
+        -- 1. Verify batch exists and lock the row to prevent race conditions
+        BEGIN
+            SELECT status 
+              INTO v_current_status
+              FROM batch_job_master
+             WHERE batch_id = p_batch_id
+               FOR UPDATE NOWAIT;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                raise_application_error(-20002, 'Error: Batch ID ' || p_batch_id || ' does not exist.');
+            WHEN OTHERS THEN
+                raise_application_error(-20003, 'Error: Batch record is currently locked by another process.');
+        END;
+
+        -- 2. Validate state transitions (e.g., prevent moving to PROCESSING if already SUCCESS)
+        IF v_current_status IN ('SUCCESS', 'FAILED') AND p_new_status = 'PROCESSING' THEN
+            RAISE_APPLICATION_ERROR(-20001, 'Invalid Transition: Cannot re-process a finalized batch.');
+        END IF;
+
+        -- 3. Execute the status update
+        UPDATE batch_job_master
+           SET status          = UPPER(p_new_status),
+               records_success = records_success + p_success_count,
+               records_failed  = records_failed + p_failed_count,
+               error_message   = NVL(p_error_msg, error_message),
+               updated_at      = SYSTIMESTAMP
+         WHERE batch_id        = p_batch_id;
+
+        -- Note: Transaction control (COMMIT/ROLLBACK) is intentionally left 
+        -- to the calling environment to ensure data consistency.
+        
+    EXCEPTION
+        WHEN OTHERS THEN
+            -- Log the system error internally if required, then re-raise
+            RAISE;
+    END prc_manage_batch_status;
+/
